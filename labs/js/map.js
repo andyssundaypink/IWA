@@ -3,47 +3,76 @@ var rootURL = "http://localhost/labs/geoip.php/";
 var currentLocation;
 
 console.log("root");
+$(document).ready(getDefaultIp);
 
-// Register listeners
+// Register listeners onClick
 $('#btnSearch').click(function() {
 console.info("btnsearch clicked");
-	search($('#ipaddress').val());
+	findByIp($('#ipaddress').val());
 	return false;
 });
 
-console.log("rootx");
-function search(searchKey) {	
-	findById(searchKey);
-}
+// Register listeners onEnter
+$('#ipaddress').keypress(function(e){
+	if(e.which == 13){
+		findByIp($('#ipaddress').val());
+	 }
+});
 
-function findById(id) {
-	console.log('findById: ' + id);
+// AJAX call to WebService
+function findByIp(ip) {
+	console.log('findById: ' + ip);
 	$.ajax({
 		type: 'GET',
-		url: rootURL + 'ip/' + id,
+		url: rootURL + 'ip/' + ip,
 		dataType: "xml",
 		success: function(data){
-			var IP = $(data).find('IP').text();
+			console.log("success", data);
+			var IP = $(data).find('IP').text()
 			var countryName = $(data).find('CountryName').text();
 			console.log("IP", IP);
 			console.log("CountryName", countryName);
-			convertToGeoCode(countryName);
+			convertToGeoCode(countryName, ip);
+			
+			toggleError();
+			
+		},
+		error: function(data){
+			var error = $(data.responseText).find('ReturnCodeDetails').text();
+			toggleError(error);
 		}
 	});
 }
 
-function convertToGeoCode(countryName) {
+// Fill IP address by default
+function getDefaultIp() {
+	console.log('getDefaultIp: ');
+	$.ajax({
+		type: 'GET',
+		url: rootURL + 'ip/default',
+		dataType: "xml",
+		success: function(data){
+			var IP = $(data).find('IP').text();
+			$('#ipaddress').val(IP);
+			findByIp(IP);
+		}
+	});
+}
+
+// Convert Country name to Geocode
+function convertToGeoCode(countryName, ip) {
 var geocoder = new google.maps.Geocoder();
 geocoder.geocode({ 'address': countryName}, function(results, status) {
 console.log("status", google.maps.GeocoderStatus.OK);
   if (status == google.maps.GeocoderStatus.OK) {
   console.log(results[0].geometry.location.lat);
-	initializeMap(results[0].geometry.location);
+	initializeMap(results[0].geometry.location, countryName, ip);
 	};
   })
 }
 
-function initializeMap(address) {
+// Initialize map object
+function initializeMap(address, countryName, ip) {
 console.log("address", address);
   var myOptions = {
 	zoom: 6,
@@ -55,10 +84,20 @@ console.log("address", address);
 	var options = {
 	  map: map,
 	  position: new google.maps.LatLng(address.Qa, address.Ra),
-	  content: 'test content'
+	  content: "IP: " + ip  + "<br/> Country: " + countryName
 	};
 
 	var infowindow = new google.maps.InfoWindow(options);
 	map.setCenter(options.position);
 	
+}
+
+// Show or Hide error
+function toggleError(error) {
+	if(error != null){
+		$('#error').show();
+		$('#error').text(error);		
+	} else {
+		$('#error').hide();
+	}
 }
